@@ -1,0 +1,332 @@
+import { useState, useRef, useEffect } from "react";
+import SlideContent from "./SlideContent";
+import type { Slide, ImageSliderProps } from "../types";
+
+const wrap = (n: number, length: number) => ((n % length) + length) % length;
+export default function ImageSlider({
+  items = [],
+  showControls = true,
+}: ImageSliderProps) {
+  const [index, setIndex] = useState(0),
+    [motion, setMotion] = useState(0),
+    [animate, setAnimate] = useState(true),
+    [auto, setAuto] = useState(false),
+    [paused, setPaused] = useState(false),
+    [selected, setSelected] = useState<Slide | null>(null);
+  const busy = useRef(false),
+    timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
+    touch = useRef<number | null>(null),
+    dialog = useRef<HTMLDialogElement | null>(null);
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const move = (direction: -1 | 1) => {
+    if (busy.current || items.length < 2) return;
+    busy.current = true;
+    setAnimate(true);
+    setMotion(direction);
+    timer.current = setTimeout(
+      () => {
+        setAnimate(false);
+        setIndex((i) => wrap(i + direction, items.length));
+        setMotion(0);
+        busy.current = false;
+      },
+      reduced ? 0 : 650,
+    );
+  };
+  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    if (!auto || paused || selected) return;
+    const id = setInterval(() => move(1), 5000);
+    return () => clearInterval(id);
+  }, [auto, paused, selected]);
+  useEffect(() => {
+    if (selected) dialog.current?.showModal();
+  }, [selected]);
+  if (!items.length) return <p>No slides to display.</p>;
+  return (
+    <>
+      <section
+        className="carousel"
+        aria-roledescription="carousel"
+        aria-label="Travel inspiration"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "ArrowRight") {
+            e.preventDefault();
+            move(1);
+          }
+          if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            move(-1);
+          }
+        }}
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onFocusCapture={() => setPaused(true)}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setPaused(false);
+        }}
+        onTouchStart={(e) => (touch.current = e.touches[0].clientX)}
+        onTouchEnd={(e) => {
+          if (touch.current === null) return;
+          const delta = e.changedTouches[0].clientX - touch.current;
+          if (Math.abs(delta) > 50) move(delta < 0 ? 1 : -1);
+          touch.current = null;
+        }}
+      >
+        <div
+          className="track"
+          style={{
+            transform: `translateX(calc(-50% - ${motion} * (var(--slide-width) + var(--gap))))`,
+            transition:
+              animate && !reduced
+                ? "transform 650ms cubic-bezier(.22,.7,.2,1)"
+                : "none",
+          }}
+        >
+          {[-2, -1, 0, 1, 2].map((offset) => {
+            const s = items[wrap(index + offset, items.length)];
+            return (
+              <article
+                key={offset}
+                className={`slide ${offset === 0 ? "current" : ""}`}
+                aria-hidden={offset !== 0}
+              >
+                <SlideContent
+                  slide={s}
+                  active={offset === 0}
+                  onDetails={setSelected}
+                />
+                {offset !== 0 && items.length > 1 && (
+                  <button
+                    className="neighbor"
+                    tabIndex={-1}
+                    aria-label={offset < 0 ? "Previous slide" : "Next slide"}
+                    onClick={() => move(offset < 0 ? -1 : 1)}
+                  />
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+      {showControls && items.length > 1 && (
+        <div className="controls">
+          <div className="count" aria-live="polite">
+            <strong>{String(index + 1).padStart(2, "0")}</strong>
+            <span>/ {String(items.length).padStart(2, "0")}</span>
+          </div>
+          <div className="progress">
+            <span
+              style={{
+                width: `${100 / items.length}%`,
+                left: `${(index * 100) / items.length}%`,
+              }}
+            />
+          </div>
+          <div className="buttons">
+            <button
+              className="play"
+              onClick={() => setAuto(!auto)}
+              aria-label={auto ? "Pause slideshow" : "Play slideshow"}
+            >
+              {auto ? "Ⅱ" : "▷"}
+              <span>{auto ? "Pause" : "Autoplay"}</span>
+            </button>
+            <button
+              className="arrow"
+              onClick={() => move(-1)}
+              aria-label="Previous slide"
+            >
+              ←
+            </button>
+            <button
+              className="arrow dark"
+              onClick={() => move(1)}
+              aria-label="Next slide"
+            >
+              →
+            </button>
+          </div>
+        </div>
+      )}
+      <dialog
+        ref={dialog}
+        onClose={() => setSelected(null)}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) dialog.current?.close();
+        }}
+      >
+        <button
+          className="close"
+          aria-label="Close details"
+          onClick={() => dialog.current?.close()}
+        >
+          ×
+        </button>
+        {selected && (
+          <>
+            {selected.category && (
+              <p className="eyebrow">{selected.category}</p>
+            )}
+            {selected.title && <h3>{selected.title}</h3>}
+            {selected.detail && <p>{selected.detail}</p>}
+            <button className="explore" onClick={() => dialog.current?.close()}>
+              Keep exploring <span>→</span>
+            </button>
+          </>
+        )}
+      </dialog>
+    </>
+  );
+}
+
+
+// Slider content
+
+import type { SlideContentProps } from "../types";
+
+export default function SlideContent({
+  slide,
+  active,
+  onDetails,
+}: SlideContentProps) {
+  const button = slide.button;
+  const hasButton = Boolean(
+    button?.label && (button.href || button.onClick || slide.detail),
+  );
+  const hasText = Boolean(
+    slide.category || slide.title || slide.subtitle || hasButton,
+  );
+  const hasContent = Boolean(slide.image || hasText);
+
+  return (
+    <>
+      {slide.backgroundImage && (
+        <img
+          className="slide-background"
+          src={slide.backgroundImage}
+          alt={slide.backgroundAlt || ""}
+          draggable="false"
+        />
+      )}
+      {hasText && <div className="slide-overlay" aria-hidden="true" />}
+      {hasContent && (
+        <div
+          className={`slide-content ${slide.image && hasText ? "split" : "single"}`}
+        >
+          {slide.image && (
+            <div className="slide-image">
+              <img
+                src={slide.image}
+                alt={slide.imageAlt || ""}
+                draggable="false"
+              />
+            </div>
+          )}
+          {hasText && (
+            <div className="slide-copy">
+              {slide.category && <p className="eyebrow">{slide.category}</p>}
+              {slide.title && <h2>{slide.title}</h2>}
+              {slide.subtitle && (
+                <p className="description">{slide.subtitle}</p>
+              )}
+              {hasButton &&
+                button &&
+                (button.href ? (
+                  <a
+                    className="explore"
+                    href={button.href}
+                    tabIndex={active ? 0 : -1}
+                  >
+                    {button.label} <span aria-hidden="true">↗</span>
+                  </a>
+                ) : (
+                  <button
+                    className="explore"
+                    tabIndex={active ? 0 : -1}
+                    onClick={() =>
+                      button.onClick ? button.onClick(slide) : onDetails(slide)
+                    }
+                  >
+                    {button.label} <span aria-hidden="true">↗</span>
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+
+export interface SlideButton {
+  label: string;
+  href?: string;
+  onClick?: (slide: Slide) => void;
+}
+
+export interface Slide {
+  backgroundImage?: string;
+  backgroundAlt?: string;
+  image?: string;
+  imageAlt?: string;
+  category?: string;
+  title?: string;
+  subtitle?: string;
+  button?: SlideButton;
+  detail?: string;
+}
+
+export interface ImageSliderProps {
+  items?: readonly Slide[];
+  showControls?: boolean;
+}
+
+export interface SlideContentProps {
+  slide: Slide;
+  active: boolean;
+  onDetails: (slide: Slide) => void;
+}
+
+import type { Slide } from "./types";
+
+// Every slide field is optional. Use full URLs or local paths for images.
+const photo = (id: string) =>
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1600&q=85`;
+export const slides: Slide[] = [
+  {
+    backgroundImage: photo("photo-1464822759023-fed622ff2c3b"),
+    image: photo("photo-1470770841072-f978cf4d019e"),
+    imageAlt: "A peaceful lake surrounded by mountains",
+    category: "Above the ordinary",
+    title: "Find your\nown kind of wild.",
+    subtitle:
+      "Trade the everyday for open skies, quiet trails, and a different point of view.",
+    button: { label: "Explore this place" },
+    detail:
+      "Discover mountain trails, alpine lakes, and the simple pleasure of being outside.",
+  },
+  {
+    backgroundImage: photo("photo-1518837695005-2083093ee35b"),
+    title: "Let the ocean\nset the pace.",
+    subtitle: "A background and text, with no left image or button.",
+  },
+  {
+    backgroundImage: photo("photo-1509316785289-025f5b846b35"),
+    backgroundAlt: "Sunlit desert rock formations",
+  },
+  {
+    image: photo("photo-1441974231531-c6227db76b6e"),
+    imageAlt: "Sunlight filtering through a green forest",
+    title: "Get lost in\nsomething good.",
+    subtitle: "A left image and text, without a background image.",
+  },
+  {
+    backgroundImage: photo("photo-1464822759023-fed622ff2c3b"),
+    image: photo("photo-1470770841072-f978cf4d019e"),
+    imageAlt: "An alpine lake reflecting the mountains",
+  },
+];
