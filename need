@@ -330,3 +330,219 @@ export const slides: Slide[] = [
     imageAlt: "An alpine lake reflecting the mountains",
   },
 ];
+
+/* Carousel */
+
+.carousel {
+  position: relative;
+  width: 100%;
+  height: 540px;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.track {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  gap: var(--gap);
+  width: max-content;
+  height: 100%;
+  will-change: transform;
+}
+
+.slide {
+  position: relative;
+  isolation: isolate;
+  flex-shrink: 0;
+  width: var(--slide-width);
+  height: 100%;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #344536;
+  color: #fff;
+}
+
+/* Images and overlay */
+
+.slide img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 48%;
+}
+
+.slide-background,
+.slide-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.slide-background {
+  z-index: -3;
+}
+
+.slide-overlay {
+  z-index: -2;
+  background: linear-gradient(
+    90deg,
+    rgb(8 21 15 / 35%),
+    rgb(8 21 15 / 82%)
+  );
+}
+
+/* Content layout */
+
+.slide-content {
+  display: grid;
+  align-items: center;
+  gap: 48px;
+  height: 100%;
+  padding: 48px;
+}
+
+.slide-content.split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.slide-content.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.slide-image {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  max-height: 440px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.slide-content.single .slide-image {
+  justify-self: center;
+  width: min(100%, 600px);
+}
+
+/* Text */
+
+.slide-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 22px;
+  min-width: 0;
+  max-width: 490px;
+}
+
+.slide-content.single .slide-copy {
+  justify-self: center;
+  width: 100%;
+}
+
+.slide-copy .eyebrow {
+  margin: 0;
+  color: #e4eacb;
+}
+
+.slide-copy h2 {
+  margin: 0;
+  font-family: Manrope, sans-serif;
+  font-size: clamp(32px, 3.5vw, 48px);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -1.8px;
+  white-space: pre-line;
+}
+
+.slide-copy .description {
+  max-width: 325px;
+  margin: 0;
+  color: #edf0e9;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+/* Button */
+
+.explore {
+  display: inline-flex;
+  align-items: center;
+  gap: 28px;
+  padding: 15px 19px;
+  border: 0;
+  border-radius: 3px;
+  background: #e7edda;
+  color: #243123;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.slide-copy .explore:hover {
+  background: #fff;
+}
+
+/* Clickable neighboring slides */
+
+.neighbor {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+
+/* Responsive */
+
+@media (min-width: 1600px) {
+  .carousel {
+    height: 580px;
+  }
+}
+
+@media (min-width: 701px) and (max-width: 1000px) {
+  .slide-content {
+    gap: 28px;
+    padding: 30px;
+  }
+
+  .slide-copy h2 {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 700px) {
+  .carousel {
+    height: 680px;
+  }
+
+  .slide-content {
+    gap: 24px;
+    padding: 24px;
+  }
+
+  .slide-content.split {
+    grid-template-columns: 1fr;
+    grid-template-rows: 230px 1fr;
+  }
+
+  .slide-copy {
+    gap: 16px;
+  }
+
+  .slide-copy h2 {
+    font-size: 32px;
+    letter-spacing: -1.2px;
+  }
+
+  .slide-copy .description {
+    max-width: 260px;
+    font-size: 12px;
+  }
+
+  .slide-overlay {
+    background: rgb(8 21 15 / 70%);
+  }
+}
